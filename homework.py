@@ -14,7 +14,7 @@ load_dotenv()
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_TELEGRAM_CHAT_ID')
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -31,25 +31,25 @@ HOMEWORK_VERDICTS = {
 class CustomExceptions(Exception):
     """Содержит возможные ошибки."""
 
-    class EmptyAPIResponse:
+    class EmptyAPIResponse(Exception):
         """Ошибка, ответ пустой."""
-    class NotExistingVerdictError:
+    class NotExistingVerdictError(Exception):
         """Ошибка, несущуствующий вердикт ревью."""
-    class RequestError:
+    class RequestError(Exception):
         """Ошибка при запросе."""
-    class StatusNot200Error:
+    class StatusNot200Error(Exception):
         """Ошибка, ответ сервера не равен 200."""
 
 
 def check_tokens():
     """Проверяет существование переменных."""
-    return all([TELEGRAM_TOKEN, PRACTICUM_TOKEN, CHAT_ID])
+    return all([TELEGRAM_TOKEN, PRACTICUM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot, message):
     """Отправляем сообщение в Telegram."""
     try:
-        bot.send_message(CHAT_ID, message)
+        bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.info(
             f'Сообщение в Telegram отправлено: {message}')
     except telegram.TelegramError as telegram_error:
@@ -106,6 +106,9 @@ def check_response(response):
 
 def parse_status(homework):
     """Проверяет состояние статуса."""
+    if 'homework_name' not in homework:
+        logger.error('Ошибка, "homework_name" отсутсвует')
+        raise KeyError('В ответе отсутсвует ключ homework_name')
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     if homework_status not in HOMEWORK_VERDICTS:
@@ -133,14 +136,18 @@ def main():
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
-            if homeworks and 'reviewing' != homeworks['status']:
+            if homeworks:
                 message = parse_status(homeworks)
                 send_message(bot, message)
-                logger.info()
+                logger.info(
+                    'Нет изменений, через 10 минут повторная проверка статуса'
+                )
+                time.sleep(RETRY_PERIOD)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            ...
-        ...
+            send_message(bot, message)
+            logger.critical(message)
+            time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
