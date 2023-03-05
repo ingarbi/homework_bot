@@ -27,6 +27,16 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename='tg_bot.log',
+    format='%(asctime)s - %(levelname)s - %(message)s - %(name)s'
+)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = RotatingFileHandler('my_log.log', maxBytes=5000, backupCount=3)
+logger.addHandler(handler)
+
 
 class CustomExceptions(Exception):
     """Содержит возможные ошибки."""
@@ -151,13 +161,4 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-        level=logging.DEBUG,
-        filename='tg_bot.log',
-        format='%(asctime)s - %(levelname)s - %(message)s - %(name)s'
-    )
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
-    handler = RotatingFileHandler('my_log.log', maxBytes=5000, backupCount=3)
-    logger.addHandler(handler)
     main()
