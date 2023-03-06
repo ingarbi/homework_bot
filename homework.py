@@ -1,10 +1,12 @@
 import datetime
 import logging
 import os
-import sys
 import time
 from http import HTTPStatus
 from logging.handlers import RotatingFileHandler
+from telegram import ReplyKeyboardMarkup
+import exceptions as err
+import json
 
 import requests
 import telegram
@@ -38,19 +40,6 @@ handler = RotatingFileHandler('my_log.log', maxBytes=5000, backupCount=3)
 logger.addHandler(handler)
 
 
-class CustomExceptions(Exception):
-    """Содержит возможные ошибки."""
-
-    class EmptyAPIResponse(Exception):
-        """Ошибка, ответ пустой."""
-    class NotExistingVerdictError(Exception):
-        """Ошибка, несущуствующий вердикт ревью."""
-    class RequestError(Exception):
-        """Ошибка при запросе."""
-    class StatusNot200Error(Exception):
-        """Ошибка, ответ сервера не равен 200."""
-
-
 def check_tokens():
     """Проверяет существование переменных."""
     return all([TELEGRAM_TOKEN, PRACTICUM_TOKEN, TELEGRAM_CHAT_ID])
@@ -59,8 +48,14 @@ def check_tokens():
 def send_message(bot, message):
     """Отправляем сообщение в Telegram."""
     try:
-        bot.send_message(TELEGRAM_CHAT_ID, message)
-        logger.info(
+        button = ReplyKeyboardMarkup([['/check_my_homework']],
+                                     resize_keyboard=True)
+        bot.send_message(
+            chat_id=TELEGRAM_CHAT_ID,
+            text=message,
+            reply_markup=button,
+        )
+        logger.debug(
             f'Сообщение в Telegram отправлено: {message}')
     except telegram.TelegramError as telegram_error:
         logger.error(
@@ -68,62 +63,76 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Получает статус ответа."""
+    """Получаем статус ответа."""
     headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-    payload = {'from_date': timestamp}
+    params = {'from_date': timestamp}
     try:
         logging.info(
             f'Запрашивается url = {ENDPOINT},'
             f'headers = {headers},'
-            f'params = {payload}'
+            f'params = {params}'
         )
-        response = requests.get(url=ENDPOINT, headers=headers, params=payload)
-        if response.status_code == HTTPStatus.OK:
-            return response.json()
-        else:
-            logger.error(
-                'Ошибка при получении данных, статус ответа:'
-                f'{response.status_code}'
-            )
-            raise CustomExceptions.StatusNot200Error(
-                f'Ошибка, Url {ENDPOINT} недоступен'
-            )
-    except requests.exceptions.RequestException as request_error:
-        logger.error(F'Ошибка при запросе {request_error}')
-        raise CustomExceptions.RequestError(
-            'Ошибка, проверьте параметры запроса: '
-            f'url = {ENDPOINT}, headers = {headers}, payload = {payload}'
+        response = requests.get(ENDPOINT, headers=headers, params=params)
+    except requests.exceptions.ConnectionError as error:
+        logger.error('Ошибка с подключением, попробуйте ещё раз')
+        raise SystemExit(error)
+    except requests.exceptions.Timeout as error:
+        logger.error('Ошибка, ожидание ответа превысило лимит')
+        raise SystemExit(error)
+    except requests.exceptions.RequestException as error:
+        logger.error('Ошибка запроса')
+        raise err.RequestError(error)
+
+    if response.status_code != HTTPStatus.OK:
+        logger.error(
+            'Ошибка при получении данных, статус ответа:'
+            f'{response.status_code}'
         )
+        raise err.StatusNot200Error(
+            f'Ошибка, Url {ENDPOINT} недоступен'
+        )
+    try:
+        return response.json()
+    except json.decoder.JSONDecodeError:
+        logger.error('Это не JSON формат')
 
 
 def check_response(response):
     """Проверяем валидность полученных данных."""
     logging.debug('Начало проверки ответа запроса')
-    if not isinstance(response, dict):
+
+    if type(response) is not dict:
         logger.error(f'Ошибка в ответе: {response}')
         raise TypeError('Ошибка в типе ответа API')
-    if 'homeworks' not in response:
+    if not response:
         logger.error(f'Ошибка, ответ с запроса пришел пустым: {response}')
-        raise CustomExceptions.EmptyAPIResponse('Пустой ответ от API')
+        raise err.EmptyAPIResponse('Ошибка, пустой ответ от API')
+    if 'homeworks' not in response:
+        logger.error('Ошибка, в ответе нет ключа "homeworks"')
+        raise KeyError('Ошибка, в ответе нет ключа "homeworks"')
+    if type(response.get('homeworks')) is not list:
+        logger.error('Ошибка, тип API не соответствует "list"')
+        raise TypeError('Ошибка, тип API не соответствует "list"')
     homework_verdict = response['homeworks'][0].get('status')
     if homework_verdict not in HOMEWORK_VERDICTS:
         logger.error(f'Ошибка, несущуствующий статус: {homework_verdict}')
-        raise CustomExceptions.NotExistingVerdictError(
+        raise err.NotExistingVerdictError(
             f'Ошибка, несущуствующий статус: {homework_verdict}'
         )
-    return response['homeworks'][0]
+    return response.get('homeworks')
 
 
 def parse_status(homework):
-    """Проверяет состояние статуса."""
-    if 'homework_name' not in homework:
-        logger.error('Ошибка, "homework_name" отсутсвует')
-        raise KeyError('В ответе отсутсвует ключ homework_name')
-    homework_name = homework.get('homework_name')
-    homework_status = homework.get('status')
+    """Проверяем состояние статуса домашней работы."""
+    try:
+        homework_name = homework['homework_name']
+        homework_status = homework['status']
+    except KeyError:
+        logger.error('Ошибка, несуществующий ключ')
+        raise KeyError('Ошибка, несуществующий ключ')
     if homework_status not in HOMEWORK_VERDICTS:
         logger.error(f'Неизвестный статус работы - {homework_status}')
-        raise CustomExceptions.NotExistingVerdictError(
+        raise err.NotExistingVerdictError(
             f'Неизвестный статус работы - {homework_status}'
         )
     verdict = HOMEWORK_VERDICTS[homework_status]
@@ -132,31 +141,37 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    if not check_tokens():
-        logging.critical('Отсутствует необходимые переменные окружения')
-        sys.exit('Бот остановлен из-за отсутсвия всех переменных')
-
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     now = datetime.datetime.now()
     send_message(
-        bot, f'Начал работать с {now}'
+        bot, f'Запустился в {now}'
     )
+    if not check_tokens():
+        logging.critical(
+            'Ошибка, отсутствуют необходимые переменные окружения'
+        )
+        raise SystemExit(
+            'Ошибка, отсутствуют необходимые переменные окружения'
+        )
+
     while True:
         try:
+
             response = get_api_answer(timestamp)
-            homeworks = check_response(response)
-            if homeworks:
-                message = parse_status(homeworks)
-                send_message(bot, message)
-                logger.info(
-                    'Нет изменений, через 10 минут повторная проверка статуса'
-                )
-                time.sleep(RETRY_PERIOD)
+            response = check_response(response)
+            if response:
+                message = parse_status(response[0])
+            else:
+                message = 'Нет новых статусов работ.'
+            send_message(bot, message)
+            logger.debug('Сообщение успешно отправлено')
+            timestamp = int(time.time())
+            time.sleep(RETRY_PERIOD)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            send_message(bot, message)
             logger.critical(message)
+            send_message(bot, message)
             time.sleep(RETRY_PERIOD)
 
 
