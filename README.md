@@ -1,2 +1,14 @@
-# homework_bot
-python telegram bot
+### Бот для проверки статуса домашней работы в Яндекс.Практикум
+
+# Бот работающий с API Яндекс.Практикум, который каждый 10 минут проверяет статус работы и если статус ответа изменился, то уведомляет в телеграм.
+
+# Для доступа к API Яндекс.Практикум структура примерно такая:
+ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
+HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
+PARAM = KEY('from_date') : VALUE(default=0)
+
+### Запуск на ПК:
+1. Клон данного репо
+2. Установка зависмостей из requirements.txt
+3. Прописать свои токены(удобным вам способом)
+4. Запустить бот командой "python homework.py"
