@@ -35,7 +35,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s - %(name)s'
 )
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 handler = RotatingFileHandler('my_log.log', maxBytes=5000, backupCount=3)
 logger.addHandler(handler)
 
@@ -48,8 +47,10 @@ def check_tokens():
 def send_message(bot, message):
     """Отправляем сообщение в Telegram."""
     try:
-        button = ReplyKeyboardMarkup([['/check_my_homework']],
+        button = ReplyKeyboardMarkup([['/check_homework']],
                                      resize_keyboard=True)
+        logger.debug(
+            f'Сообщение в Telegram отправлено: {message}')
         bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=message,
