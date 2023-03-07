@@ -150,4 +150,4 @@ static/
 posts/static/
 media/
 *.log.*
-
+check.py

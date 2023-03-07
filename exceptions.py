@@ -16,6 +16,10 @@ class RequestError(Exception):
     """Ошибка при запросе."""
 
 
+class ResponseError(Exception):
+    """Ошибка при запросе."""
+
+
 class SendingError(Exception):
     """Ошибка во время отправки."""
 

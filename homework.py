@@ -83,19 +83,12 @@ def get_api_answer(timestamp):
         raise SystemExit(error)
     except requests.exceptions.RequestException as error:
         raise err.RequestError(error)
-
     if response.status_code != HTTPStatus.OK:
-        logger.error(
-            'Ошибка при получении данных, статус ответа:'
-            f'{response.status_code}'
-        )
-        raise err.StatusNot200Error(
-            f'Ошибка, Url {ENDPOINT} недоступен'
-        )
+        raise err.StatusNot200Error(f'Ошибка, Url {ENDPOINT} недоступен')
     try:
         return response.json()
     except json.decoder.JSONDecodeError:
-        logger.error('Это не JSON формат')
+        raise err.ResponseError('Это не JSON формат')
 
 
 def check_response(response):
@@ -106,7 +99,7 @@ def check_response(response):
         raise TypeError('Ошибка в типе ответа API')
     if not response:
         raise err.EmptyAPIResponse('Ошибка, пустой ответ от API')
-    if 'homeworks' and 'current_date' not in response:
+    if not ('homeworks' and 'current_date') in response:
         raise KeyError(
             'Ошибка, в ответе нет ключей "homeworks" и "current_date"'
         )
@@ -163,9 +156,6 @@ def main():
             if error_message != initial_error:
                 send_message(bot, error_message)
                 initial_error = error_message
-            time.sleep(RETRY_PERIOD)
-        else:
-            response = get_api_answer(timestamp)
             time.sleep(RETRY_PERIOD)
 
 
