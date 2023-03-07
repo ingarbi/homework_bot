@@ -111,8 +111,8 @@ def check_response(response):
 def parse_status(homework):
     """Проверяем состояние статуса домашней работы."""
     try:
-        homework_name = homework[0]['homework_name']
-        homework_status = homework[0]['status']
+        homework_name = homework['homework_name']
+        homework_status = homework['status']
     except KeyError:
         raise KeyError('Ошибка, несуществующий ключ')
     if homework_status not in HOMEWORK_VERDICTS:
@@ -147,7 +147,7 @@ def main():
             timestamp = response.get('current_date')
             print(response)
             homework = check_response(response)
-            message = parse_status(homework)
+            message = parse_status(homework[0])
             if message != previous_status:
                 send_message(bot, message)
             time.sleep(RETRY_PERIOD)
