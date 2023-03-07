@@ -102,7 +102,7 @@ def check_response(response):
     if not ('homeworks' and 'current_date') in response:
         raise KeyError(
             'Ошибка, в ответе нет ключей "homeworks" и "current_date"'
-        )
+        )  # Считайте комм удален. Ошибка была с юниксвременем
     if type(response.get('homeworks')) is not list:
         raise TypeError('Ошибка, тип API не соответствует "list"')
     return response.get('homeworks')
@@ -111,8 +111,8 @@ def check_response(response):
 def parse_status(homework):
     """Проверяем состояние статуса домашней работы."""
     try:
-        homework_name = homework['homework_name']
-        homework_status = homework['status']
+        homework_name = homework[0]['homework_name']
+        homework_status = homework[0]['status']
     except KeyError:
         raise KeyError('Ошибка, несуществующий ключ')
     if homework_status not in HOMEWORK_VERDICTS:
@@ -126,7 +126,7 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time())
+    timestamp = int(time.time() / 10)
     previous_status = ''
     initial_error = ''
     now = datetime.datetime.now()
@@ -145,13 +145,14 @@ def main():
         try:
             response = get_api_answer(timestamp)
             timestamp = response.get('current_date')
+            print(response)
             homework = check_response(response)
-            message = parse_status(homework[0])
+            message = parse_status(homework)
             if message != previous_status:
                 send_message(bot, message)
             time.sleep(RETRY_PERIOD)
         except Exception as error:
-            logger.critical(f'Ошибка в статусe и валидности ответа{error}')
+            logger.critical(f'Ошибка в статусe и валидности ответа {error}')
             error_message = f'Сбой в работе программы: {error}'
             if error_message != initial_error:
                 send_message(bot, error_message)
