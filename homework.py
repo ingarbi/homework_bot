@@ -99,9 +99,13 @@ def check_response(response):
         raise TypeError('Ошибка в типе ответа API')
     if not response:
         raise err.EmptyAPIResponse('Ошибка, пустой ответ от API')
-    if 'homeworks' not in response or 'current_date' not in response:
+    if 'homeworks' not in response:
         raise KeyError(
             'Ошибка, в ответе нет ключа "homeworks"'
+        )
+    if 'current_date' not in response:
+        raise KeyError(
+            'Ошибка, в ответе нет ключа "current_date"'
         )
     if len(response['homeworks']) == 0:
         raise KeyError(
