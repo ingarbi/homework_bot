@@ -99,9 +99,13 @@ def check_response(response):
         raise TypeError('Ошибка в типе ответа API')
     if not response:
         raise err.EmptyAPIResponse('Ошибка, пустой ответ от API')
-    if 'homeworks' not in response and 'current_date' not in response:
+    if 'homeworks' not in response or 'current_date' not in response:
         raise KeyError(
-            'Ошибка, в ответе нет ключей "homeworks" и "current_date"'
+            'Ошибка, в ответе нет ключа "homeworks"'
+        )
+    if len(response['homeworks']) == 0:
+        raise KeyError(
+            'Ошибка, во временном диапозоне для "current_date"'
         )
     if type(response.get('homeworks')) is not list:
         raise TypeError('Ошибка, тип API не соответствует "list"')
@@ -145,7 +149,6 @@ def main():
         try:
             response = get_api_answer(timestamp)
             timestamp = response.get('current_date')
-            print(response)
             homework = check_response(response)
             message = parse_status(homework[0])
             if message != previous_status:
