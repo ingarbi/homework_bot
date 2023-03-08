@@ -99,10 +99,10 @@ def check_response(response):
         raise TypeError('Ошибка в типе ответа API')
     if not response:
         raise err.EmptyAPIResponse('Ошибка, пустой ответ от API')
-    if not ('homeworks' and 'current_date') in response:
+    if 'homeworks' not in response and 'current_date' not in response:
         raise KeyError(
             'Ошибка, в ответе нет ключей "homeworks" и "current_date"'
-        )  # Считайте комм удален. Ошибка была с юниксвременем
+        )
     if type(response.get('homeworks')) is not list:
         raise TypeError('Ошибка, тип API не соответствует "list"')
     return response.get('homeworks')
